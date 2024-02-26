@@ -1,9 +1,21 @@
 import Phaser from "phaser";
+export type Collidable =
+    | Phaser.Types.Physics.Arcade.GameObjectWithBody
+    | Phaser.Tilemaps.Tile;
 
 export default class MainScene extends Phaser.Scene {
     private platforms?: Phaser.Physics.Arcade.StaticGroup;
     private player?: Phaser.Physics.Arcade.Sprite;
     private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
+    private stars?: Phaser.Physics.Arcade.Group;
+
+    private score = 0;
+    private scoreText?: Phaser.GameObjects.Text;
+
+    private bombs?: Phaser.Physics.Arcade.Group;
+
+    private gameOver = false;
+
     constructor() {
         super({ key: "MainScene" });
     }
@@ -16,7 +28,7 @@ export default class MainScene extends Phaser.Scene {
                 fontSize: "24px",
             })
             .setOrigin(1, 0);
-        //just added below
+
         this.add.image(400, 300, "sky");
 
         this.platforms = this.physics.add.staticGroup();
@@ -63,30 +75,110 @@ export default class MainScene extends Phaser.Scene {
         });
 
         this.physics.add.collider(this.player, this.platforms);
+
         this.cursors = this.input.keyboard?.createCursorKeys();
+
+        this.stars = this.physics.add.group({
+            key: "star",
+            repeat: 11,
+            setXY: { x: 12, y: 0, stepX: 70 },
+        });
+
+        this.stars.children.iterate((c) => {
+            const child = c as Phaser.Physics.Arcade.Image;
+            child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+            return true;
+        });
+
+        this.physics.add.collider(this.stars, this.platforms);
+        this.physics.add.overlap(
+            this.player,
+            this.stars,
+            this.handleCollectStar,
+            undefined,
+            this
+        );
+
+        this.scoreText = this.add.text(16, 16, "score: 0", {
+            fontSize: "32px",
+            color: "#000",
+        });
+
+        this.bombs = this.physics.add.group();
+
+        this.physics.add.collider(this.bombs, this.platforms);
+        this.physics.add.collider(
+            this.player,
+            this.bombs,
+            this.handleHitBomb,
+            undefined,
+            this
+        );
+    }
+
+    private handleHitBomb() //   b: Phaser.GameObjects.GameObject //   player: Phaser.GameObjects.GameObject,
+
+    {
+        this.physics.pause();
+
+        this.player?.setTint(0xff0000);
+        this.player?.anims.play("turn");
+
+        this.gameOver = true;
+    }
+
+    private handleCollectStar(
+        player:
+            | Phaser.Types.Physics.Arcade.GameObjectWithBody
+            | Phaser.Tilemaps.Tile,
+        s: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile
+    ) {
+        const star = s as Phaser.Physics.Arcade.Image;
+        star.disableBody(true, true);
+
+        this.score += 10;
+        this.scoreText?.setText("Score: ${this.score}");
+
+        if (this.stars?.countActive(true) === 0) {
+            this.stars.children.iterate((c) => {
+                const child = c as Phaser.Physics.Arcade.Image;
+                child.enableBody(true, child.x, 0, true, true);
+            });
+
+            if (this.player) {
+                const x =
+                    this.player.x < 400
+                        ? Phaser.Math.Between(400, 800)
+                        : Phaser.Math.Between(0, 400);
+
+                const bomb = (Phaser.Physics.Arcade.Image = this.bombs?.create(
+                    x,
+                    16,
+                    "bomb"
+                ));
+                bomb.setBounce(1);
+                bomb.setCollideWorldBounds(true);
+                bomb.setVelocityY(Phaser.Math.Between(-200, 200), 20);
+            }
+        }
     }
 
     update() {
-        if (!this.cursors){
+        if (!this.cursors) {
             return;
         }
-        if (this.cursors.left.isDown)
-        {
+        if (this.cursors.left.isDown) {
             this.player?.setVelocityX(-160);
-            this.player?.anims.play('left', true);
-        }
-        else if (this.cursors.right.isDown) 
-        {
+            this.player?.anims.play("left", true);
+        } else if (this.cursors.right.isDown) {
             this.player?.setVelocityX(160);
-            this.player?.anims.play('right', true);
-        }
-        else{
+            this.player?.anims.play("right", true);
+        } else {
             this.player?.setVelocityX(0);
-            this.player?.anims.play('turn');
+            this.player?.anims.play("turn");
         }
 
-        if(this.cursors.up.isDown && this.player?.body?.touching.down) 
-        {
+        if (this.cursors.up.isDown && this.player?.body?.touching.down) {
             this.player.setVelocityY(-330);
         }
     }
