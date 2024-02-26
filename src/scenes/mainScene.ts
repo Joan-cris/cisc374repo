@@ -3,6 +3,8 @@ export type Collidable =
     | Phaser.Types.Physics.Arcade.GameObjectWithBody
     | Phaser.Tilemaps.Tile;
 
+
+
 export default class MainScene extends Phaser.Scene {
     private platforms?: Phaser.Physics.Arcade.StaticGroup;
     private player?: Phaser.Physics.Arcade.Sprite;
@@ -142,7 +144,8 @@ export default class MainScene extends Phaser.Scene {
         if (this.stars?.countActive(true) === 0) {
             this.stars.children.iterate((c) => {
                 const child = c as Phaser.Physics.Arcade.Image;
-                child.enableBody(true, child.x, 0, true, true);
+                child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+                return true;
             });
 
             if (this.player) {
